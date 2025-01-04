@@ -291,6 +291,7 @@ applyrules(Client *c)
     outer_separator_beg = outer_separator_beg ? outer_separator_beg : ' ';
     outer_separator_end = outer_separator_end ? outer_separator_end : ' ';
     inner_separator = inner_separator ? inner_separator : ' ';
+    truncate_icons_after = truncate_icons_after > 0 ? truncate_icons_after : 1;
 
 	/* rule matching */
     c->appicon = NULL;
@@ -763,6 +764,16 @@ applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c)
                 strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
 
             else {
+                char *icon = NULL;
+                if (icons_per_tag[i] < truncate_icons_after)
+                    icon = c->appicon;
+                else if (icons_per_tag[i] == truncate_icons_after)
+                    icon =  truncate_symbol;
+                else {
+                    icons_per_tag[i]++;
+                    continue;
+                }
+                    
                 /* remove outer separators from previous iterations
                  * otherwise they get applied recursively */
                 if (icons_per_tag[i] > 1) {
@@ -775,10 +786,10 @@ applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c)
                 size_t new_size = strlen(tag_icons[i])
                     + outer_separators_size 
                     + inner_separator_size
-                    + strlen(c->appicon)
+                    + strlen(icon)
                     + 1;
 
-                appiconsappend(&tag_icons[i], c->appicon, new_size);
+                appiconsappend(&tag_icons[i], icon, new_size);
             }
 
             icons_per_tag[i]++;
