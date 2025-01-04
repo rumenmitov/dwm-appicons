@@ -43,7 +43,6 @@
 
 #include "drw.h"
 #include "util.h"
-#include "appicons.h"
 
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
@@ -163,6 +162,9 @@ static void destroynotify(XEvent *e);
 static void detach(Client *c);
 static void detachstack(Client *c);
 static Monitor *dirtomon(int dir);
+static void remove_outer_separators(char **str);
+static void appiconsappend(char **str, const char *appicon, size_t new_size);
+static void applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c);
 static void drawbar(Monitor *m);
 static void drawbars(void);
 static void enternotify(XEvent *e);
@@ -705,6 +707,86 @@ dirtomon(int dir)
 }
 
 void
+remove_outer_separators(char **str)
+{
+    size_t clean_tag_name_len = strlen(*str) - 2;
+
+    char *temp_tag_name = (char*) 
+        malloc(clean_tag_name_len + 1);
+
+    if (temp_tag_name == NULL) perror("dwm: malloc()");
+
+    memset(temp_tag_name, 0, clean_tag_name_len + 1);
+
+    char *clean_tag_name_beg = *str + 1;
+    strncpy(temp_tag_name, 
+            clean_tag_name_beg, 
+            clean_tag_name_len);
+
+    free(*str);
+    *str = temp_tag_name;
+}
+
+void
+appiconsappend(char **str, const char *appicon, size_t new_size)
+{
+    char *temp_tag_name = (char*) malloc(new_size);
+    if (temp_tag_name == NULL) perror("dwm: malloc()");
+
+    /* NOTE: Example format of temp_tag_name (with two appicons):
+     *  <outer_sep_beg><appicon><inner_sep><appicon><outer_sep_end>
+     */
+    temp_tag_name = memset(temp_tag_name, 0, new_size);
+
+    temp_tag_name[0] = outer_separator_beg;
+    temp_tag_name[new_size - 2] = outer_separator_end;
+
+    strncpy(temp_tag_name + 1, *str, strlen(*str));
+    temp_tag_name[strlen(temp_tag_name)] = inner_separator;
+
+    strncpy(temp_tag_name + strlen(temp_tag_name),
+            appicon, strlen(appicon));
+
+    free(*str);
+    *str = temp_tag_name;
+}
+
+void
+applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c)
+{
+    for (unsigned t = 1, i = 0;
+            i < LENGTH(tags);
+            t <<= 1, i++) 
+    {
+        if (c->tags & t) {
+            if (icons_per_tag[i] == 0)
+                strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
+
+            else {
+                /* remove outer separators from previous iterations
+                 * otherwise they get applied recursively */
+                if (icons_per_tag[i] > 1) {
+                    remove_outer_separators(&tag_icons[i]);
+                }
+
+                size_t outer_separators_size = 2;
+                size_t inner_separator_size = 1;
+
+                size_t new_size = strlen(tag_icons[i])
+                    + outer_separators_size 
+                    + inner_separator_size
+                    + strlen(c->appicon)
+                    + 1;
+
+                appiconsappend(&tag_icons[i], c->appicon, new_size);
+            }
+
+            icons_per_tag[i]++;
+        }
+    }
+}
+
+void
 drawbar(Monitor *m)
 {
 	int x, w, tw = 0;
@@ -724,66 +806,17 @@ drawbar(Monitor *m)
 	}
 
     char *tag_icons[LENGTH(tags)];
-    int icons_per_tag[LENGTH(tags)] = { [0 ... (LENGTH(tags) - 1)] = 0 };
+    int icons_per_tag[LENGTH(tags)];
+    memset(icons_per_tag, 0, LENGTH(tags) * sizeof(int));
 
     for (int i = 0; i < LENGTH(tags); i++) {
+        /* set each tag to default value */
         tag_icons[i] = strndup(tags[i], strlen(tags[i]));
     }
 
 	for (c = m->clients; c; c = c->next) {
-        if (c->appicon) {
-            for (unsigned t = 1, i = 0;
-                    i < LENGTH(tags);
-                    t <<= 1, i++) 
-            {
-                if (c->tags & t) {
-                    /* remove outer separators from previous iterations
-                     * otherwise they get applied recursively */
-                    if (icons_per_tag[i] > 1) {
-                        remove_outer_separators(&tag_icons[i]);
-                    }
-
-                    size_t new_size = 0;
-
-                    if (icons_per_tag[i] == 0)
-                        strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
-
-                    else {
-                        size_t outer_separators_size = 2;
-                        size_t inner_separator_size = 1;
-
-                        new_size = strlen(tag_icons[i])
-                            + outer_separators_size 
-                            + inner_separator_size
-                            + strlen(c->appicon)
-                            + 1;
-                    }
-
-                    if (icons_per_tag[i] != 0) {
-                        char *temp_tag_name = (char*) malloc(new_size);
-                        if (temp_tag_name == NULL) perror("dwm: malloc()");
-
-                        /* NOTE: Example format of temp_tag_name (with two appicons):
-                         *  <outer_sep_beg><appicon><inner_sep><appicon><outer_sep_end>
-                         */
-                        temp_tag_name = memset(temp_tag_name, 0, new_size);
-
-                        temp_tag_name[0] = outer_separator_beg;
-                        temp_tag_name[new_size - 2] = outer_separator_end;
-
-                        strncpy(temp_tag_name + 1, tag_icons[i], strlen(tag_icons[i]));
-                        temp_tag_name[strlen(temp_tag_name)] = inner_separator;
-
-                        strncpy(temp_tag_name + strlen(temp_tag_name),
-                                c->appicon, strlen(c->appicon));
-
-                        free(tag_icons[i]);
-                        tag_icons[i] = temp_tag_name;
-                    }
-
-                    icons_per_tag[i]++;
-                }
-            }
+        if (c->appicon && strlen(c->appicon) > 0) {
+            applyappicon(tag_icons, icons_per_tag, c);
         }
 
 		occ |= c->tags;
