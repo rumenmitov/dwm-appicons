@@ -85,6 +85,7 @@ typedef struct Monitor Monitor;
 typedef struct Client Client;
 struct Client {
 	char name[256];
+    char *appicon;
 	float mina, maxa;
 	int x, y, w, h;
 	int oldx, oldy, oldw, oldh;
@@ -285,6 +286,7 @@ applyrules(Client *c)
 	XClassHint ch = { NULL, NULL };
 
 	/* rule matching */
+    c->appicon = NULL;
 	c->isfloating = 0;
 	c->tags = 0;
 	XGetClassHint(dpy, c->win, &ch);
@@ -297,6 +299,8 @@ applyrules(Client *c)
 		&& (!r->class || strstr(class, r->class))
 		&& (!r->instance || strstr(instance, r->instance)))
 		{
+            /* r->appicon is static, so lifetime is sufficient */
+            c->appicon = (char*) r->appicon; 
 			c->isfloating = r->isfloating;
 			c->tags |= r->tags;
 			for (m = mons; m && m->num != r->monitor; m = m->next);
@@ -720,12 +724,13 @@ drawbar(Monitor *m)
     }
 
 	for (c = m->clients; c; c = c->next) {
-        if (strncmp(c->name, "Mozilla Firefox", strlen(c->name)) == 0) {
+        if (c->appicon) {
             for (unsigned t = 1, i = 0;
                     i < LENGTH(tags);
                     t <<= 1, i++) 
             {
-                if (c->tags & t) strncpy(tag_icons[i], "f", strlen("f") + 1);
+                if (c->tags & t) 
+                    strncpy(tag_icons[i], "f", strlen("f") + 1);
             }
         }
 
