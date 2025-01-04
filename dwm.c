@@ -719,6 +719,8 @@ drawbar(Monitor *m)
 	}
 
     char *tag_icons[LENGTH(tags)];
+    int icons_per_tag[LENGTH(tags)] = { [0 ... (LENGTH(tags) - 1)] = 0 };
+
     for (int i = 0; i < LENGTH(tags); i++) {
         tag_icons[i] = strndup(tags[i], strlen(tags[i]));
     }
@@ -729,8 +731,56 @@ drawbar(Monitor *m)
                     i < LENGTH(tags);
                     t <<= 1, i++) 
             {
-                if (c->tags & t) 
-                    strncpy(tag_icons[i], "f", strlen("f") + 1);
+                if (c->tags & t) {
+                    size_t new_size = 0;
+
+                    if (icons_per_tag[i] == 0)
+                        strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
+
+                    else if (icons_per_tag[i] == 1) {
+                        size_t outer_separators_size = 2 * sizeof(char);
+                        size_t inner_separator_size = sizeof(char);
+
+                        new_size = strlen(tag_icons[i])
+                            + outer_separators_size 
+                            + inner_separator_size
+                            + strlen(c->appicon)
+                            + 1;
+
+                    } else {
+                        size_t inner_separator_size = sizeof(char);
+
+                        new_size = strlen(tag_icons[i])
+                            + inner_separator_size
+                            + strlen(c->appicon)
+                            + 1;
+                    }
+
+                    if (icons_per_tag[i] != 0) {
+                        char *temp_tag_name = (char*) malloc(new_size);
+                        if (temp_tag_name == NULL) perror("dwm: malloc()");
+
+                        /* NOTE: Format of temp_tag_name:
+                         *  <outer_sep><appicon><inner_sep><appicon><outer_sep>
+                         */
+                        temp_tag_name = memset(temp_tag_name, 0, new_size);
+
+                        temp_tag_name[0] = '|';
+                        temp_tag_name[new_size - 2] = '|';
+                        temp_tag_name[new_size - 1] = 0;
+
+                        strncpy(temp_tag_name + 1, tag_icons[i], strlen(tag_icons[i]));
+                        temp_tag_name[strlen(tag_icons[i]) + 1] = ' ';
+
+                        strncpy(temp_tag_name + strlen(temp_tag_name),
+                                c->appicon, strlen(c->appicon));
+
+                        free(tag_icons[i]);
+                        tag_icons[i] = temp_tag_name;
+                    }
+
+                    icons_per_tag[i]++;
+                }
             }
         }
 
@@ -740,7 +790,7 @@ drawbar(Monitor *m)
 	}
 	x = 0;
 	for (i = 0; i < LENGTH(tags); i++) {
-		w = TEXTW(tags[i]);
+		w = TEXTW(tag_icons[i]);
 		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
 		drw_text(drw, x, 0, w, bh, lrpad / 2, tag_icons[i], urg & 1 << i);
 		if (occ & 1 << i)
