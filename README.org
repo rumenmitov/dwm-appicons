@@ -5,6 +5,8 @@ Adds support for app icons which can be used instead of the tag indicator and ta
 
 When one or more app icons are present in a tag, the tag name will be encapsulated with the outer separators (=outer_separator_beg= and =outer_separator_end=). Additionally, the icons of the tag will be separated between themselves by =inner_separator=.
 
+Each tag can have a maximum of =truncate_icons_after= icons. After which the =truncate_symbol= will be displayed.
+
 
 ---------
 
