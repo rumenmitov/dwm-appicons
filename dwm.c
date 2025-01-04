@@ -43,6 +43,7 @@
 
 #include "drw.h"
 #include "util.h"
+#include "appicons.h"
 
 /* macros */
 #define BUTTONMASK              (ButtonPressMask|ButtonReleaseMask)
@@ -284,6 +285,10 @@ applyrules(Client *c)
 	const Rule *r;
 	Monitor *m;
 	XClassHint ch = { NULL, NULL };
+
+    outer_separator_beg = outer_separator_beg ? outer_separator_beg : ' ';
+    outer_separator_end = outer_separator_end ? outer_separator_end : ' ';
+    inner_separator = inner_separator ? inner_separator : ' ';
 
 	/* rule matching */
     c->appicon = NULL;
@@ -732,25 +737,23 @@ drawbar(Monitor *m)
                     t <<= 1, i++) 
             {
                 if (c->tags & t) {
+                    /* remove outer separators from previous iterations
+                     * otherwise they get applied recursively */
+                    if (icons_per_tag[i] > 1) {
+                        remove_outer_separators(&tag_icons[i]);
+                    }
+
                     size_t new_size = 0;
 
                     if (icons_per_tag[i] == 0)
                         strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
 
-                    else if (icons_per_tag[i] == 1) {
-                        size_t outer_separators_size = 2 * sizeof(char);
-                        size_t inner_separator_size = sizeof(char);
+                    else {
+                        size_t outer_separators_size = 2;
+                        size_t inner_separator_size = 1;
 
                         new_size = strlen(tag_icons[i])
                             + outer_separators_size 
-                            + inner_separator_size
-                            + strlen(c->appicon)
-                            + 1;
-
-                    } else {
-                        size_t inner_separator_size = sizeof(char);
-
-                        new_size = strlen(tag_icons[i])
                             + inner_separator_size
                             + strlen(c->appicon)
                             + 1;
@@ -760,17 +763,16 @@ drawbar(Monitor *m)
                         char *temp_tag_name = (char*) malloc(new_size);
                         if (temp_tag_name == NULL) perror("dwm: malloc()");
 
-                        /* NOTE: Format of temp_tag_name:
-                         *  <outer_sep><appicon><inner_sep><appicon><outer_sep>
+                        /* NOTE: Example format of temp_tag_name (with two appicons):
+                         *  <outer_sep_beg><appicon><inner_sep><appicon><outer_sep_end>
                          */
                         temp_tag_name = memset(temp_tag_name, 0, new_size);
 
-                        temp_tag_name[0] = '|';
-                        temp_tag_name[new_size - 2] = '|';
-                        temp_tag_name[new_size - 1] = 0;
+                        temp_tag_name[0] = outer_separator_beg;
+                        temp_tag_name[new_size - 2] = outer_separator_end;
 
                         strncpy(temp_tag_name + 1, tag_icons[i], strlen(tag_icons[i]));
-                        temp_tag_name[strlen(tag_icons[i]) + 1] = ' ';
+                        temp_tag_name[strlen(temp_tag_name)] = inner_separator;
 
                         strncpy(temp_tag_name + strlen(temp_tag_name),
                                 c->appicon, strlen(c->appicon));
