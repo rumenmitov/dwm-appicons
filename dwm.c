@@ -138,6 +138,7 @@ typedef struct {
 	unsigned int tags;
 	int isfloating;
 	int monitor;
+    const char *appicon;
 } Rule;
 
 /* function declarations */
@@ -715,7 +716,7 @@ drawbar(Monitor *m)
 
     char *tag_icons[LENGTH(tags)];
     for (int i = 0; i < LENGTH(tags); i++) {
-        tag_icons[i] = strndup("o", strlen("o"));
+        tag_icons[i] = strndup(tags[i], strlen(tags[i]));
     }
 
 	for (c = m->clients; c; c = c->next) {
