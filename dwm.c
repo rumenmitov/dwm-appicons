@@ -713,7 +713,21 @@ drawbar(Monitor *m)
 		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
 	}
 
+    char *tag_icons[LENGTH(tags)];
+    for (int i = 0; i < LENGTH(tags); i++) {
+        tag_icons[i] = strndup("o", strlen("o"));
+    }
+
 	for (c = m->clients; c; c = c->next) {
+        if (strncmp(c->name, "Mozilla Firefox", strlen(c->name)) == 0) {
+            for (unsigned t = 1, i = 0;
+                    i < LENGTH(tags);
+                    t <<= 1, i++) 
+            {
+                if (c->tags & t) strncpy(tag_icons[i], "f", strlen("f") + 1);
+            }
+        }
+
 		occ |= c->tags;
 		if (c->isurgent)
 			urg |= c->tags;
@@ -722,13 +736,19 @@ drawbar(Monitor *m)
 	for (i = 0; i < LENGTH(tags); i++) {
 		w = TEXTW(tags[i]);
 		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
-		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
+		drw_text(drw, x, 0, w, bh, lrpad / 2, tag_icons[i], urg & 1 << i);
 		if (occ & 1 << i)
 			drw_rect(drw, x + boxs, boxs, boxw, boxw,
 				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
 				urg & 1 << i);
 		x += w;
 	}
+
+    for (int i = 0; i < LENGTH(tags); i++) {
+        free(tag_icons[i]);
+        tag_icons[i] = NULL;
+    }
+
 	w = TEXTW(m->ltsymbol);
 	drw_setscheme(drw, scheme[SchemeNorm]);
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
