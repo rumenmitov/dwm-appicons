@@ -85,6 +85,7 @@ typedef struct Monitor Monitor;
 typedef struct Client Client;
 struct Client {
 	char name[256];
+    char *appicon;
 	float mina, maxa;
 	int x, y, w, h;
 	int oldx, oldy, oldw, oldh;
@@ -138,6 +139,7 @@ typedef struct {
 	unsigned int tags;
 	int isfloating;
 	int monitor;
+    const char *appicon;
 } Rule;
 
 /* function declarations */
@@ -160,6 +162,9 @@ static void destroynotify(XEvent *e);
 static void detach(Client *c);
 static void detachstack(Client *c);
 static Monitor *dirtomon(int dir);
+static void remove_outer_separators(char **str);
+static void appiconsappend(char **str, const char *appicon, size_t new_size);
+static void applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c);
 static void drawbar(Monitor *m);
 static void drawbars(void);
 static void enternotify(XEvent *e);
@@ -283,7 +288,13 @@ applyrules(Client *c)
 	Monitor *m;
 	XClassHint ch = { NULL, NULL };
 
+    outer_separator_beg = outer_separator_beg ? outer_separator_beg : ' ';
+    outer_separator_end = outer_separator_end ? outer_separator_end : ' ';
+    inner_separator = inner_separator ? inner_separator : ' ';
+    truncate_icons_after = truncate_icons_after > 0 ? truncate_icons_after : 1;
+
 	/* rule matching */
+    c->appicon = NULL;
 	c->isfloating = 0;
 	c->tags = 0;
 	XGetClassHint(dpy, c->win, &ch);
@@ -296,6 +307,8 @@ applyrules(Client *c)
 		&& (!r->class || strstr(class, r->class))
 		&& (!r->instance || strstr(instance, r->instance)))
 		{
+            /* r->appicon is static, so lifetime is sufficient */
+            c->appicon = (char*) r->appicon; 
 			c->isfloating = r->isfloating;
 			c->tags |= r->tags;
 			for (m = mons; m && m->num != r->monitor; m = m->next);
@@ -695,6 +708,96 @@ dirtomon(int dir)
 }
 
 void
+remove_outer_separators(char **str)
+{
+    size_t clean_tag_name_len = strlen(*str) - 2;
+
+    char *temp_tag_name = (char*) 
+        malloc(clean_tag_name_len + 1);
+
+    if (temp_tag_name == NULL) perror("dwm: malloc()");
+
+    memset(temp_tag_name, 0, clean_tag_name_len + 1);
+
+    char *clean_tag_name_beg = *str + 1;
+    strncpy(temp_tag_name, 
+            clean_tag_name_beg, 
+            clean_tag_name_len);
+
+    free(*str);
+    *str = temp_tag_name;
+}
+
+void
+appiconsappend(char **str, const char *appicon, size_t new_size)
+{
+    char *temp_tag_name = (char*) malloc(new_size);
+    if (temp_tag_name == NULL) perror("dwm: malloc()");
+
+    /* NOTE: Example format of temp_tag_name (with two appicons):
+     *  <outer_sep_beg><appicon><inner_sep><appicon><outer_sep_end>
+     */
+    temp_tag_name = memset(temp_tag_name, 0, new_size);
+
+    temp_tag_name[0] = outer_separator_beg;
+    temp_tag_name[new_size - 2] = outer_separator_end;
+
+    strncpy(temp_tag_name + 1, *str, strlen(*str));
+    temp_tag_name[strlen(temp_tag_name)] = inner_separator;
+
+    strncpy(temp_tag_name + strlen(temp_tag_name),
+            appicon, strlen(appicon));
+
+    free(*str);
+    *str = temp_tag_name;
+}
+
+void
+applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c)
+{
+    for (unsigned t = 1, i = 0;
+            i < LENGTH(tags);
+            t <<= 1, i++) 
+    {
+        if (c->tags & t) {
+            if (icons_per_tag[i] == 0)
+                strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
+
+            else {
+                char *icon = NULL;
+                if (icons_per_tag[i] < truncate_icons_after)
+                    icon = c->appicon;
+                else if (icons_per_tag[i] == truncate_icons_after)
+                    icon =  truncate_symbol;
+                else {
+                    icons_per_tag[i]++;
+                    continue;
+                }
+                    
+                /* remove outer separators from previous iterations
+                 * otherwise they get applied recursively */
+                if (icons_per_tag[i] > 1) {
+                    remove_outer_separators(&tag_icons[i]);
+                }
+
+                size_t outer_separators_size = 2;
+                size_t inner_separator_size = 1;
+
+                size_t new_size = strlen(tag_icons[i])
+                    + outer_separators_size 
+                    + inner_separator_size
+                    + strlen(icon)
+                    + 1;
+
+                appiconsappend(&tag_icons[i], icon, new_size);
+            }
+
+            icons_per_tag[i]++;
+        }
+    }
+}
+
+void
 drawbar(Monitor *m)
 {
 	int x, w, tw = 0;
@@ -713,22 +816,41 @@ drawbar(Monitor *m)
 		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
 	}
 
+    char *tag_icons[LENGTH(tags)];
+    int icons_per_tag[LENGTH(tags)];
+    memset(icons_per_tag, 0, LENGTH(tags) * sizeof(int));
+
+    for (int i = 0; i < LENGTH(tags); i++) {
+        /* set each tag to default value */
+        tag_icons[i] = strndup(tags[i], strlen(tags[i]));
+    }
+
 	for (c = m->clients; c; c = c->next) {
+        if (c->appicon && strlen(c->appicon) > 0) {
+            applyappicon(tag_icons, icons_per_tag, c);
+        }
+
 		occ |= c->tags;
 		if (c->isurgent)
 			urg |= c->tags;
 	}
 	x = 0;
 	for (i = 0; i < LENGTH(tags); i++) {
-		w = TEXTW(tags[i]);
+		w = TEXTW(tag_icons[i]);
 		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
-		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
-		if (occ & 1 << i)
+		drw_text(drw, x, 0, w, bh, lrpad / 2, tag_icons[i], urg & 1 << i);
+		if (occ & 1 << i && icons_per_tag[i] == 0)
 			drw_rect(drw, x + boxs, boxs, boxw, boxw,
 				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
 				urg & 1 << i);
 		x += w;
 	}
+
+    for (int i = 0; i < LENGTH(tags); i++) {
+        free(tag_icons[i]);
+        tag_icons[i] = NULL;
+    }
+
 	w = TEXTW(m->ltsymbol);
 	drw_setscheme(drw, scheme[SchemeNorm]);
 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
