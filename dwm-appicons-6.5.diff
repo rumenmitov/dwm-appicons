@@ -1,0 +1,413 @@
+From dcc4b9a2c613757a936a63e8b7879f3cad1b9e51 Mon Sep 17 00:00:00 2001
+From: Rumen <rumenmitov@protonmail.com>
+Date: Mon, 6 Jan 2025 16:33:55 +0100
+Subject: [PATCH] appicons patch
+
+Adds support for app icons that can replace the tag indicator and tag name.
+---
+ config.def.h |  14 +++--
+ config.h     | 124 ++++++++++++++++++++++++++++++++++++++++++++
+ dwm.c        | 142 +++++++++++++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 273 insertions(+), 7 deletions(-)
+ create mode 100644 config.h
+
+diff --git a/config.def.h b/config.def.h
+index 9efa774..3045af6 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -21,14 +21,22 @@ static const char *colors[][3]      = {
+ /* tagging */
+ static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+ 
++/* appicons */
++/* NOTE: set to 0 to set to default (whitespace) */
++static char outer_separator_beg      = '[';
++static char outer_separator_end      = ']';
++static char inner_separator          = ' ';
++static unsigned truncate_icons_after = 2; /* will default to 1, that is the min */
++static char truncate_symbol[]         = "...";
++
+ static const Rule rules[] = {
+ 	/* xprop(1):
+ 	 *	WM_CLASS(STRING) = instance, class
+ 	 *	WM_NAME(STRING) = title
+ 	 */
+-	/* class      instance    title       tags mask     isfloating   monitor */
+-	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
+-	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
++	/* class      instance    title       tags mask     isfloating   monitor   appicon*/
++	{ "Gimp",     NULL,       NULL,       0,            1,           -1,         NULL },
++	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1,         "󰈹"  },
+ };
+ 
+ /* layout(s) */
+diff --git a/config.h b/config.h
+new file mode 100644
+index 0000000..3045af6
+--- /dev/null
++++ b/config.h
+@@ -0,0 +1,124 @@
++/* See LICENSE file for copyright and license details. */
++
++/* appearance */
++static const unsigned int borderpx  = 1;        /* border pixel of windows */
++static const unsigned int snap      = 32;       /* snap pixel */
++static const int showbar            = 1;        /* 0 means no bar */
++static const int topbar             = 1;        /* 0 means bottom bar */
++static const char *fonts[]          = { "monospace:size=10" };
++static const char dmenufont[]       = "monospace:size=10";
++static const char col_gray1[]       = "#222222";
++static const char col_gray2[]       = "#444444";
++static const char col_gray3[]       = "#bbbbbb";
++static const char col_gray4[]       = "#eeeeee";
++static const char col_cyan[]        = "#005577";
++static const char *colors[][3]      = {
++	/*               fg         bg         border   */
++	[SchemeNorm] = { col_gray3, col_gray1, col_gray2 },
++	[SchemeSel]  = { col_gray4, col_cyan,  col_cyan  },
++};
++
++/* tagging */
++static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
++
++/* appicons */
++/* NOTE: set to 0 to set to default (whitespace) */
++static char outer_separator_beg      = '[';
++static char outer_separator_end      = ']';
++static char inner_separator          = ' ';
++static unsigned truncate_icons_after = 2; /* will default to 1, that is the min */
++static char truncate_symbol[]         = "...";
++
++static const Rule rules[] = {
++	/* xprop(1):
++	 *	WM_CLASS(STRING) = instance, class
++	 *	WM_NAME(STRING) = title
++	 */
++	/* class      instance    title       tags mask     isfloating   monitor   appicon*/
++	{ "Gimp",     NULL,       NULL,       0,            1,           -1,         NULL },
++	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1,         "󰈹"  },
++};
++
++/* layout(s) */
++static const float mfact     = 0.55; /* factor of master area size [0.05..0.95] */
++static const int nmaster     = 1;    /* number of clients in master area */
++static const int resizehints = 1;    /* 1 means respect size hints in tiled resizals */
++static const int lockfullscreen = 1; /* 1 will force focus on the fullscreen window */
++
++static const Layout layouts[] = {
++	/* symbol     arrange function */
++	{ "[]=",      tile },    /* first entry is default */
++	{ "><>",      NULL },    /* no layout function means floating behavior */
++	{ "[M]",      monocle },
++};
++
++/* key definitions */
++#define MODKEY Mod1Mask
++#define TAGKEYS(KEY,TAG) \
++	{ MODKEY,                       KEY,      view,           {.ui = 1 << TAG} }, \
++	{ MODKEY|ControlMask,           KEY,      toggleview,     {.ui = 1 << TAG} }, \
++	{ MODKEY|ShiftMask,             KEY,      tag,            {.ui = 1 << TAG} }, \
++	{ MODKEY|ControlMask|ShiftMask, KEY,      toggletag,      {.ui = 1 << TAG} },
++
++/* helper for spawning shell commands in the pre dwm-5.0 fashion */
++#define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
++
++/* commands */
++static char dmenumon[2] = "0"; /* component of dmenucmd, manipulated in spawn() */
++static const char *dmenucmd[] = { "dmenu_run", "-m", dmenumon, "-fn", dmenufont, "-nb", col_gray1, "-nf", col_gray3, "-sb", col_cyan, "-sf", col_gray4, NULL };
++static const char *termcmd[]  = { "st", NULL };
++
++static const Key keys[] = {
++	/* modifier                     key        function        argument */
++	{ MODKEY,                       XK_p,      spawn,          {.v = dmenucmd } },
++	{ MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd } },
++	{ MODKEY,                       XK_b,      togglebar,      {0} },
++	{ MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
++	{ MODKEY,                       XK_k,      focusstack,     {.i = -1 } },
++	{ MODKEY,                       XK_i,      incnmaster,     {.i = +1 } },
++	{ MODKEY,                       XK_d,      incnmaster,     {.i = -1 } },
++	{ MODKEY,                       XK_h,      setmfact,       {.f = -0.05} },
++	{ MODKEY,                       XK_l,      setmfact,       {.f = +0.05} },
++	{ MODKEY,                       XK_Return, zoom,           {0} },
++	{ MODKEY,                       XK_Tab,    view,           {0} },
++	{ MODKEY|ShiftMask,             XK_c,      killclient,     {0} },
++	{ MODKEY,                       XK_t,      setlayout,      {.v = &layouts[0]} },
++	{ MODKEY,                       XK_f,      setlayout,      {.v = &layouts[1]} },
++	{ MODKEY,                       XK_m,      setlayout,      {.v = &layouts[2]} },
++	{ MODKEY,                       XK_space,  setlayout,      {0} },
++	{ MODKEY|ShiftMask,             XK_space,  togglefloating, {0} },
++	{ MODKEY,                       XK_0,      view,           {.ui = ~0 } },
++	{ MODKEY|ShiftMask,             XK_0,      tag,            {.ui = ~0 } },
++	{ MODKEY,                       XK_comma,  focusmon,       {.i = -1 } },
++	{ MODKEY,                       XK_period, focusmon,       {.i = +1 } },
++	{ MODKEY|ShiftMask,             XK_comma,  tagmon,         {.i = -1 } },
++	{ MODKEY|ShiftMask,             XK_period, tagmon,         {.i = +1 } },
++	TAGKEYS(                        XK_1,                      0)
++	TAGKEYS(                        XK_2,                      1)
++	TAGKEYS(                        XK_3,                      2)
++	TAGKEYS(                        XK_4,                      3)
++	TAGKEYS(                        XK_5,                      4)
++	TAGKEYS(                        XK_6,                      5)
++	TAGKEYS(                        XK_7,                      6)
++	TAGKEYS(                        XK_8,                      7)
++	TAGKEYS(                        XK_9,                      8)
++	{ MODKEY|ShiftMask,             XK_q,      quit,           {0} },
++};
++
++/* button definitions */
++/* click can be ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle, ClkClientWin, or ClkRootWin */
++static const Button buttons[] = {
++	/* click                event mask      button          function        argument */
++	{ ClkLtSymbol,          0,              Button1,        setlayout,      {0} },
++	{ ClkLtSymbol,          0,              Button3,        setlayout,      {.v = &layouts[2]} },
++	{ ClkWinTitle,          0,              Button2,        zoom,           {0} },
++	{ ClkStatusText,        0,              Button2,        spawn,          {.v = termcmd } },
++	{ ClkClientWin,         MODKEY,         Button1,        movemouse,      {0} },
++	{ ClkClientWin,         MODKEY,         Button2,        togglefloating, {0} },
++	{ ClkClientWin,         MODKEY,         Button3,        resizemouse,    {0} },
++	{ ClkTagBar,            0,              Button1,        view,           {0} },
++	{ ClkTagBar,            0,              Button3,        toggleview,     {0} },
++	{ ClkTagBar,            MODKEY,         Button1,        tag,            {0} },
++	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
++};
++
+diff --git a/dwm.c b/dwm.c
+index 1443802..bad8815 100644
+--- a/dwm.c
++++ b/dwm.c
+@@ -85,6 +85,7 @@ typedef struct Monitor Monitor;
+ typedef struct Client Client;
+ struct Client {
+ 	char name[256];
++    char *appicon;
+ 	float mina, maxa;
+ 	int x, y, w, h;
+ 	int oldx, oldy, oldw, oldh;
+@@ -121,6 +122,7 @@ struct Monitor {
+ 	unsigned int seltags;
+ 	unsigned int sellt;
+ 	unsigned int tagset[2];
++    char **tag_icons;
+ 	int showbar;
+ 	int topbar;
+ 	Client *clients;
+@@ -138,6 +140,7 @@ typedef struct {
+ 	unsigned int tags;
+ 	int isfloating;
+ 	int monitor;
++    const char *appicon;
+ } Rule;
+ 
+ /* function declarations */
+@@ -160,6 +163,9 @@ static void destroynotify(XEvent *e);
+ static void detach(Client *c);
+ static void detachstack(Client *c);
+ static Monitor *dirtomon(int dir);
++static void remove_outer_separators(char **str);
++static void appiconsappend(char **str, const char *appicon, size_t new_size);
++static void applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c);
+ static void drawbar(Monitor *m);
+ static void drawbars(void);
+ static void enternotify(XEvent *e);
+@@ -283,7 +289,13 @@ applyrules(Client *c)
+ 	Monitor *m;
+ 	XClassHint ch = { NULL, NULL };
+ 
++    outer_separator_beg = outer_separator_beg ? outer_separator_beg : ' ';
++    outer_separator_end = outer_separator_end ? outer_separator_end : ' ';
++    inner_separator = inner_separator ? inner_separator : ' ';
++    truncate_icons_after = truncate_icons_after > 0 ? truncate_icons_after : 1;
++
+ 	/* rule matching */
++    c->appicon = NULL;
+ 	c->isfloating = 0;
+ 	c->tags = 0;
+ 	XGetClassHint(dpy, c->win, &ch);
+@@ -296,6 +308,8 @@ applyrules(Client *c)
+ 		&& (!r->class || strstr(class, r->class))
+ 		&& (!r->instance || strstr(instance, r->instance)))
+ 		{
++            /* r->appicon is static, so lifetime is sufficient */
++            c->appicon = (char*) r->appicon; 
+ 			c->isfloating = r->isfloating;
+ 			c->tags |= r->tags;
+ 			for (m = mons; m && m->num != r->monitor; m = m->next);
+@@ -433,7 +447,7 @@ buttonpress(XEvent *e)
+ 	if (ev->window == selmon->barwin) {
+ 		i = x = 0;
+ 		do
+-			x += TEXTW(tags[i]);
++			x += TEXTW(m->tag_icons[i]);
+ 		while (ev->x >= x && ++i < LENGTH(tags));
+ 		if (i < LENGTH(tags)) {
+ 			click = ClkTagBar;
+@@ -508,6 +522,14 @@ cleanupmon(Monitor *mon)
+ 	}
+ 	XUnmapWindow(dpy, mon->barwin);
+ 	XDestroyWindow(dpy, mon->barwin);
++
++    for (int i = 0; i < LENGTH(tags); i++) {
++        if (mon->tag_icons[i]) free(mon->tag_icons[i]);
++        mon->tag_icons[i] = NULL;
++    }
++
++    if (mon->tag_icons) free(mon->tag_icons);
++
+ 	free(mon);
+ }
+ 
+@@ -643,6 +665,13 @@ createmon(void)
+ 	m->lt[0] = &layouts[0];
+ 	m->lt[1] = &layouts[1 % LENGTH(layouts)];
+ 	strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol);
++
++    m->tag_icons = (char**) malloc(LENGTH(tags) * sizeof(char*));
++    if (m->tag_icons == NULL) perror("dwm: malloc()");
++    for (int i = 0; i < LENGTH(tags); i++) {
++        m->tag_icons[i] = NULL;
++    }
++
+ 	return m;
+ }
+ 
+@@ -694,6 +723,96 @@ dirtomon(int dir)
+ 	return m;
+ }
+ 
++void
++remove_outer_separators(char **str)
++{
++    size_t clean_tag_name_len = strlen(*str) - 2;
++
++    char *temp_tag_name = (char*) 
++        malloc(clean_tag_name_len + 1);
++
++    if (temp_tag_name == NULL) perror("dwm: malloc()");
++
++    memset(temp_tag_name, 0, clean_tag_name_len + 1);
++
++    char *clean_tag_name_beg = *str + 1;
++    strncpy(temp_tag_name, 
++            clean_tag_name_beg, 
++            clean_tag_name_len);
++
++    free(*str);
++    *str = temp_tag_name;
++}
++
++void
++appiconsappend(char **str, const char *appicon, size_t new_size)
++{
++    char *temp_tag_name = (char*) malloc(new_size);
++    if (temp_tag_name == NULL) perror("dwm: malloc()");
++
++    /* NOTE: Example format of temp_tag_name (with two appicons):
++     *  <outer_sep_beg><appicon><inner_sep><appicon><outer_sep_end>
++     */
++    temp_tag_name = memset(temp_tag_name, 0, new_size);
++
++    temp_tag_name[0] = outer_separator_beg;
++    temp_tag_name[new_size - 2] = outer_separator_end;
++
++    strncpy(temp_tag_name + 1, *str, strlen(*str));
++    temp_tag_name[strlen(temp_tag_name)] = inner_separator;
++
++    strncpy(temp_tag_name + strlen(temp_tag_name),
++            appicon, strlen(appicon));
++
++    free(*str);
++    *str = temp_tag_name;
++}
++
++void
++applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c)
++{
++    for (unsigned t = 1, i = 0;
++            i < LENGTH(tags);
++            t <<= 1, i++) 
++    {
++        if (c->tags & t) {
++            if (icons_per_tag[i] == 0)
++                strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
++
++            else {
++                char *icon = NULL;
++                if (icons_per_tag[i] < truncate_icons_after)
++                    icon = c->appicon;
++                else if (icons_per_tag[i] == truncate_icons_after)
++                    icon =  truncate_symbol;
++                else {
++                    icons_per_tag[i]++;
++                    continue;
++                }
++                    
++                /* remove outer separators from previous iterations
++                 * otherwise they get applied recursively */
++                if (icons_per_tag[i] > 1) {
++                    remove_outer_separators(&tag_icons[i]);
++                }
++
++                size_t outer_separators_size = 2;
++                size_t inner_separator_size = 1;
++
++                size_t new_size = strlen(tag_icons[i])
++                    + outer_separators_size 
++                    + inner_separator_size
++                    + strlen(icon)
++                    + 1;
++
++                appiconsappend(&tag_icons[i], icon, new_size);
++            }
++
++            icons_per_tag[i]++;
++        }
++    }
++}
++
+ void
+ drawbar(Monitor *m)
+ {
+@@ -713,22 +832,37 @@ drawbar(Monitor *m)
+ 		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
+ 	}
+ 
++    int icons_per_tag[LENGTH(tags)];
++    memset(icons_per_tag, 0, LENGTH(tags) * sizeof(int));
++
++    for (int i = 0; i < LENGTH(tags); i++) {
++        if (m->tag_icons[i]) free(m->tag_icons[i]);
++
++        /* set each tag to default value */
++        m->tag_icons[i] = strndup(tags[i], strlen(tags[i]));
++    }
++
+ 	for (c = m->clients; c; c = c->next) {
++        if (c->appicon && strlen(c->appicon) > 0) {
++            applyappicon(m->tag_icons, icons_per_tag, c);
++        }
++
+ 		occ |= c->tags;
+ 		if (c->isurgent)
+ 			urg |= c->tags;
+ 	}
+ 	x = 0;
+ 	for (i = 0; i < LENGTH(tags); i++) {
+-		w = TEXTW(tags[i]);
++		w = TEXTW(m->tag_icons[i]);
+ 		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
+-		drw_text(drw, x, 0, w, bh, lrpad / 2, tags[i], urg & 1 << i);
+-		if (occ & 1 << i)
++		drw_text(drw, x, 0, w, bh, lrpad / 2, m->tag_icons[i], urg & 1 << i);
++		if (occ & 1 << i && icons_per_tag[i] == 0)
+ 			drw_rect(drw, x + boxs, boxs, boxw, boxw,
+ 				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
+ 				urg & 1 << i);
+ 		x += w;
+ 	}
++
+ 	w = TEXTW(m->ltsymbol);
+ 	drw_setscheme(drw, scheme[SchemeNorm]);
+ 	x = drw_text(drw, x, 0, w, bh, lrpad / 2, m->ltsymbol, 0);
+-- 
+2.47.1
+
