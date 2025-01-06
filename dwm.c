@@ -524,9 +524,11 @@ cleanupmon(Monitor *mon)
 	XDestroyWindow(dpy, mon->barwin);
 
     for (int i = 0; i < LENGTH(tags); i++) {
-        free(mon->tag_icons[i]);
+        if (mon->tag_icons[i]) free(mon->tag_icons[i]);
         mon->tag_icons[i] = NULL;
     }
+
+    if (mon->tag_icons) free(mon->tag_icons);
 
 	free(mon);
 }
@@ -664,7 +666,7 @@ createmon(void)
 	m->lt[1] = &layouts[1 % LENGTH(layouts)];
 	strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol);
 
-    m->tag_icons = (char**) malloc(LENGTH(tags));
+    m->tag_icons = (char**) malloc(LENGTH(tags) * sizeof(char*));
     if (m->tag_icons == NULL) perror("dwm: malloc()");
     for (int i = 0; i < LENGTH(tags); i++) {
         m->tag_icons[i] = NULL;
