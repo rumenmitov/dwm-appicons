@@ -1,13 +1,44 @@
-From 2f9f2cb5f4f137043964f4af69b31a7efaca7ece Mon Sep 17 00:00:00 2001
+From f967b9b49ab3522d84fba8d95bbd90b6b5db0052 Mon Sep 17 00:00:00 2001
 From: Rumen <rumenmitov@protonmail.com>
-Date: Mon, 6 Jan 2025 14:17:55 +0100
+Date: Mon, 6 Jan 2025 14:22:39 +0100
 Subject: [PATCH] appicons patch
 
 Adds support for app icons that can replace the tag indicator and tag name.
 ---
- dwm.c | 140 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 136 insertions(+), 4 deletions(-)
+ config.def.h |  14 ++++--
+ dwm.c        | 140 +++++++++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 147 insertions(+), 7 deletions(-)
 
+diff --git a/config.def.h b/config.def.h
+index 9efa774..3045af6 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -21,14 +21,22 @@ static const char *colors[][3]      = {
+ /* tagging */
+ static const char *tags[] = { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+ 
++/* appicons */
++/* NOTE: set to 0 to set to default (whitespace) */
++static char outer_separator_beg      = '[';
++static char outer_separator_end      = ']';
++static char inner_separator          = ' ';
++static unsigned truncate_icons_after = 2; /* will default to 1, that is the min */
++static char truncate_symbol[]         = "...";
++
+ static const Rule rules[] = {
+ 	/* xprop(1):
+ 	 *	WM_CLASS(STRING) = instance, class
+ 	 *	WM_NAME(STRING) = title
+ 	 */
+-	/* class      instance    title       tags mask     isfloating   monitor */
+-	{ "Gimp",     NULL,       NULL,       0,            1,           -1 },
+-	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1 },
++	/* class      instance    title       tags mask     isfloating   monitor   appicon*/
++	{ "Gimp",     NULL,       NULL,       0,            1,           -1,         NULL },
++	{ "Firefox",  NULL,       NULL,       1 << 8,       0,           -1,         "󰈹"  },
+ };
+ 
+ /* layout(s) */
 diff --git a/dwm.c b/dwm.c
 index 1443802..35327af 100644
 --- a/dwm.c
