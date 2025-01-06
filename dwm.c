@@ -122,6 +122,7 @@ struct Monitor {
 	unsigned int seltags;
 	unsigned int sellt;
 	unsigned int tagset[2];
+    char **tag_icons;
 	int showbar;
 	int topbar;
 	Client *clients;
@@ -446,7 +447,7 @@ buttonpress(XEvent *e)
 	if (ev->window == selmon->barwin) {
 		i = x = 0;
 		do
-			x += TEXTW(tags[i]);
+			x += TEXTW(m->tag_icons[i]);
 		while (ev->x >= x && ++i < LENGTH(tags));
 		if (i < LENGTH(tags)) {
 			click = ClkTagBar;
@@ -521,6 +522,12 @@ cleanupmon(Monitor *mon)
 	}
 	XUnmapWindow(dpy, mon->barwin);
 	XDestroyWindow(dpy, mon->barwin);
+
+    for (int i = 0; i < LENGTH(tags); i++) {
+        free(mon->tag_icons[i]);
+        mon->tag_icons[i] = NULL;
+    }
+
 	free(mon);
 }
 
@@ -656,6 +663,13 @@ createmon(void)
 	m->lt[0] = &layouts[0];
 	m->lt[1] = &layouts[1 % LENGTH(layouts)];
 	strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol);
+
+    m->tag_icons = (char**) malloc(LENGTH(tags));
+    if (m->tag_icons == NULL) perror("dwm: malloc()");
+    for (int i = 0; i < LENGTH(tags); i++) {
+        m->tag_icons[i] = NULL;
+    }
+
 	return m;
 }
 
@@ -816,18 +830,19 @@ drawbar(Monitor *m)
 		drw_text(drw, m->ww - tw, 0, tw, bh, 0, stext, 0);
 	}
 
-    char *tag_icons[LENGTH(tags)];
     int icons_per_tag[LENGTH(tags)];
     memset(icons_per_tag, 0, LENGTH(tags) * sizeof(int));
 
     for (int i = 0; i < LENGTH(tags); i++) {
+        if (m->tag_icons[i]) free(m->tag_icons[i]);
+
         /* set each tag to default value */
-        tag_icons[i] = strndup(tags[i], strlen(tags[i]));
+        m->tag_icons[i] = strndup(tags[i], strlen(tags[i]));
     }
 
 	for (c = m->clients; c; c = c->next) {
         if (c->appicon && strlen(c->appicon) > 0) {
-            applyappicon(tag_icons, icons_per_tag, c);
+            applyappicon(m->tag_icons, icons_per_tag, c);
         }
 
 		occ |= c->tags;
@@ -836,20 +851,15 @@ drawbar(Monitor *m)
 	}
 	x = 0;
 	for (i = 0; i < LENGTH(tags); i++) {
-		w = TEXTW(tag_icons[i]);
+		w = TEXTW(m->tag_icons[i]);
 		drw_setscheme(drw, scheme[m->tagset[m->seltags] & 1 << i ? SchemeSel : SchemeNorm]);
-		drw_text(drw, x, 0, w, bh, lrpad / 2, tag_icons[i], urg & 1 << i);
+		drw_text(drw, x, 0, w, bh, lrpad / 2, m->tag_icons[i], urg & 1 << i);
 		if (occ & 1 << i && icons_per_tag[i] == 0)
 			drw_rect(drw, x + boxs, boxs, boxw, boxw,
 				m == selmon && selmon->sel && selmon->sel->tags & 1 << i,
 				urg & 1 << i);
 		x += w;
 	}
-
-    for (int i = 0; i < LENGTH(tags); i++) {
-        free(tag_icons[i]);
-        tag_icons[i] = NULL;
-    }
 
 	w = TEXTW(m->ltsymbol);
 	drw_setscheme(drw, scheme[SchemeNorm]);
