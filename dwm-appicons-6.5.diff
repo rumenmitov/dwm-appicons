@@ -159,7 +159,7 @@ index 1443802..bad8815 100644
 +            clean_tag_name_beg, 
 +            clean_tag_name_len);
 +
-+    free(*str);
++    if (*str) free(*str);
 +    *str = temp_tag_name;
 +}
 +
@@ -183,7 +183,7 @@ index 1443802..bad8815 100644
 +    strncpy(temp_tag_name + strlen(temp_tag_name),
 +            appicon, strlen(appicon));
 +
-+    free(*str);
++    if (*str) free(*str);
 +    *str = temp_tag_name;
 +}
 +
@@ -243,8 +243,6 @@ index 1443802..bad8815 100644
 +    memset(icons_per_tag, 0, LENGTH(tags) * sizeof(int));
 +
 +    for (int i = 0; i < LENGTH(tags); i++) {
-+        if (m->tag_icons[i]) free(m->tag_icons[i]);
-+
 +        /* set each tag to default value */
 +        m->tag_icons[i] = strndup(tags[i], strlen(tags[i]));
 +    }

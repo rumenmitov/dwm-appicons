@@ -740,7 +740,7 @@ remove_outer_separators(char **str)
             clean_tag_name_beg, 
             clean_tag_name_len);
 
-    free(*str);
+    if (*str) free(*str);
     *str = temp_tag_name;
 }
 
@@ -764,7 +764,7 @@ appiconsappend(char **str, const char *appicon, size_t new_size)
     strncpy(temp_tag_name + strlen(temp_tag_name),
             appicon, strlen(appicon));
 
-    free(*str);
+    if (*str) free(*str);
     *str = temp_tag_name;
 }
 
@@ -836,8 +836,6 @@ drawbar(Monitor *m)
     memset(icons_per_tag, 0, LENGTH(tags) * sizeof(int));
 
     for (int i = 0; i < LENGTH(tags); i++) {
-        if (m->tag_icons[i]) free(m->tag_icons[i]);
-
         /* set each tag to default value */
         m->tag_icons[i] = strndup(tags[i], strlen(tags[i]));
     }
