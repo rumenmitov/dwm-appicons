@@ -524,9 +524,11 @@ cleanupmon(Monitor *mon)
 	XDestroyWindow(dpy, mon->barwin);
 
     for (int i = 0; i < LENGTH(tags); i++) {
-        free(mon->tag_icons[i]);
+        if (mon->tag_icons[i]) free(mon->tag_icons[i]);
         mon->tag_icons[i] = NULL;
     }
+
+    if (mon->tag_icons) free(mon->tag_icons);
 
 	free(mon);
 }
@@ -664,7 +666,7 @@ createmon(void)
 	m->lt[1] = &layouts[1 % LENGTH(layouts)];
 	strncpy(m->ltsymbol, layouts[0].symbol, sizeof m->ltsymbol);
 
-    m->tag_icons = (char**) malloc(LENGTH(tags));
+    m->tag_icons = (char**) malloc(LENGTH(tags) * sizeof(char*));
     if (m->tag_icons == NULL) perror("dwm: malloc()");
     for (int i = 0; i < LENGTH(tags); i++) {
         m->tag_icons[i] = NULL;
@@ -738,7 +740,7 @@ remove_outer_separators(char **str)
             clean_tag_name_beg, 
             clean_tag_name_len);
 
-    free(*str);
+    if (*str) free(*str);
     *str = temp_tag_name;
 }
 
@@ -762,7 +764,7 @@ appiconsappend(char **str, const char *appicon, size_t new_size)
     strncpy(temp_tag_name + strlen(temp_tag_name),
             appicon, strlen(appicon));
 
-    free(*str);
+    if (*str) free(*str);
     *str = temp_tag_name;
 }
 
@@ -774,10 +776,10 @@ applyappicon(char *tag_icons[], int *icons_per_tag, const Client *c)
             t <<= 1, i++) 
     {
         if (c->tags & t) {
-            if (icons_per_tag[i] == 0)
-                strncpy(tag_icons[i], c->appicon, strlen(c->appicon) + 1);
-
-            else {
+          if (icons_per_tag[i] == 0) {
+                if (tag_icons[i]) free(tag_icons[i]);
+                tag_icons[i] = strndup(c->appicon, strlen(c->appicon));
+          } else {
                 char *icon = NULL;
                 if (icons_per_tag[i] < truncate_icons_after)
                     icon = c->appicon;
@@ -834,8 +836,6 @@ drawbar(Monitor *m)
     memset(icons_per_tag, 0, LENGTH(tags) * sizeof(int));
 
     for (int i = 0; i < LENGTH(tags); i++) {
-        if (m->tag_icons[i]) free(m->tag_icons[i]);
-
         /* set each tag to default value */
         m->tag_icons[i] = strndup(tags[i], strlen(tags[i]));
     }
