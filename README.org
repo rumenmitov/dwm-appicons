@@ -7,7 +7,7 @@
 
 * Patches
 - +[[dwm-appicons-6.5.diff]], 2025-01-04+
-- [[dwm-appicons-20250601.diff]], 2025-06-01 (latest)
+- [[dwm-appicons-20250601-c05f117.diff]], 2025-06-01 (latest)
 
 * About
 Adds support for app icons which can be used instead of the tag indicator and tag name. This is configurable through an extra option in =rules=.
